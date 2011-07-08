@@ -17,7 +17,7 @@ sub new {
         server => "Starman",
         server_args => {
             port => 12346,
-            workers => 1,
+            workers => 3,
             %$server_options,
         },
         app      => '/usr/bin/ubic-web',

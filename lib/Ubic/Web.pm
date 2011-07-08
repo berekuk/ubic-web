@@ -7,6 +7,7 @@ use Web::Simple 'Ubic::Web';
 
   use Ubic;
   use Data::Dumper;
+  use JSON::XS;
 
   sub default_config {(
     exclude => [qw/service.a service.b.*/],
@@ -19,32 +20,30 @@ use Web::Simple 'Ubic::Web';
     }],
   )};
 
-  sub _traverse {
+  sub _status_tree {
     my $self = shift;
-    my ($service, $callback) = @_;
+    my ($service, $result) = @_;
+    my $result = {};
+    $result->{service} = $service->name if $service;
+    $service ||= Ubic->root_service;
+
     if ($service->isa('Ubic::Multiservice')) {
       for my $subservice ($service->services) {
-          $self->_traverse($subservice, $callback);
+        push @{$result->{subservices}}, $self->_status_tree($subservice);
       }
     }
     else {
-      $callback->($service);
+      my $enabled = Ubic->is_enabled($service->full_name);
+      if ($enabled) {
+        $result->{enabled} = 1;
+        my $status = Ubic->cached_status($service->full_name);
+        $result->{status} = { status => $status->status, as_string => "$status" };
+      }
+      else {
+        $result->{enabled} = 0;
+      }
     }
-  }
-
-  sub _all_statuses {
-    my $self = shift;
-    my $root = Ubic->root_service;
-
-    my $result = {};
-    $self->_traverse($root, sub {
-      my $service = shift;
-      $result->{ $service->full_name } = Ubic->cached_status($service->full_name);
-    });
-
     return $result;
-    # all services will be in plain hashref
-    # maybe it's not the best solution, but it you want the tree, just traverse it yourself :)
   }
 
   sub dispatch_request {
@@ -53,13 +52,14 @@ use Web::Simple 'Ubic::Web';
     },
     sub (/) {
       my $self = shift;
-      redispatch_to '/status/';
+      redispatch_to '/api/status/';
     },
-    sub (/status/...) {
+    sub (/api/status/...) {
       sub (/) {
         my $self = shift;
-        my $statuses = $self->_all_statuses;
-        [ 200, [ 'Content-type', 'text/plain' ], [ Dumper($statuses) ] ]
+        my $statuses = $self->_status_tree;
+        my $json = JSON::XS->new->ascii->pretty->encode($statuses);
+        [ 200, [ 'Content-type', 'text/plain' ], [ $json ] ]
       },
       #multiservice subset i.e
       # /status/web, /status/web/jobs
