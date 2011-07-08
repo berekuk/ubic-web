@@ -1,0 +1,5 @@
+#!/usr/bin/env perl
+
+use Ubic::Web;
+
+Ubic::Web->run_if_script;
