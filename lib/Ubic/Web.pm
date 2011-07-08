@@ -1,6 +1,5 @@
 use Web::Simple 'Ubic::Web';
 
-
 {
   package Ubic::Web;
 
@@ -8,6 +7,17 @@ use Web::Simple 'Ubic::Web';
 
   use Ubic;
   use Data::Dumper;
+
+  sub default_config {(
+    exclude => [qw/service.a service.b.*/],
+    # --or--
+    include => [qw/service.a.*/],
+    servers => [{ 
+        host => '127.0.0.1:3456',
+        exclude => [qw/service.a service.b.*/],
+        include => [qw/service.a.*/],
+    }],
+  )};
 
   sub _traverse {
     my $self = shift;
@@ -38,13 +48,24 @@ use Web::Simple 'Ubic::Web';
   }
 
   sub dispatch_request {
-    sub (/status ) {
-      [ 200, [ 'Content-type', 'text/plain' ], [ "Ok." ] ]
+    sub (/ping ) {
+      [ 200, [ 'Content-type', 'text/plain' ], [ "ok" ] ]
     },
     sub (/) {
       my $self = shift;
-      my $statuses = $self->_all_statuses;
-      [ 200, [ 'Content-type', 'text/plain' ], [ Dumper($statuses) ] ]
+      redispatch_to '/status/';
+    },
+    sub (/status/...) {
+      sub (/) {
+        my $self = shift;
+        my $statuses = $self->_all_statuses;
+        [ 200, [ 'Content-type', 'text/plain' ], [ Dumper($statuses) ] ]
+      },
+      #multiservice subset i.e
+      # /status/web, /status/web/jobs
+      sub (/**) {
+        [ 200, [ 'Content-type', 'text/plain' ], [ "Not implemented." ] ]
+      },
     },
   };
 }

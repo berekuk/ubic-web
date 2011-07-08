@@ -29,10 +29,10 @@ sub new {
 
 sub status_impl {
     my $self = shift;
-    my $response = LWP::UserAgent->new(timeout => 3)->get("http://localhost:".$self->port."/status");
+    my $response = LWP::UserAgent->new(timeout => 3)->get("http://localhost:".$self->port."/ping");
     my $result = $self->SUPER::status_impl;
     return $result if result($result) ne 'running';
-    if ($response->is_success and $response->content eq 'Ok.') {
+    if ($response->is_success and $response->content eq 'ok') {
         return $result;
     }
     return 'broken';
